@@ -1,0 +1,21 @@
+# Dependencies
+node_modules/
+backend/node_modules/
+frontend/node_modules/
+
+# Build outputs
+dist/
+backend/dist/
+frontend/dist/
+
+# Environment variables (NEVER upload secrets to GitHub)
+.env
+.env.*
+backend/.env
+frontend/.env
+
+# Logs & OS files
+*.log
+.DS_Store
+Thumbs.db
+

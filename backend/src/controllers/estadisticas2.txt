@@ -1,0 +1,72 @@
+export const getEstadisticasAprobacion = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const inscripciones = await prisma.inscripcionMateria.findMany({
+      include: {
+        calificaciones: true,
+        materia: {
+          include: {
+            diplomado: true,
+            area: true
+          }
+        },
+        inscripcion: {
+          include: {
+            edicion: {
+              include: {
+                periodo: true
+              }
+            }
+          }
+        }
+      }
+    });
+
+    const statsDiplomados: Record<string, { gestion: string, nombre: string, aprobados: number, reprobados: number }> = {};
+    const statsAreas: Record<string, { gestion: string, nombre: string, aprobados: number, reprobados: number }> = {};
+
+    for (const insc of inscripciones) {
+      if (insc.calificaciones.length === 0) continue; // Ignorar si no tiene notas
+
+      const totalNota = insc.calificaciones.reduce((sum, cal) => sum + cal.nota, 0);
+      const diplomadoNombre = insc.materia.diplomado.nombre;
+      const areaNombre = insc.materia.area?.nombre || 'Sin Área';
+      const gestion = insc.inscripcion.edicion.periodo.gestion || 'Sin Gestión';
+
+      let notaMinima = 71;
+      const dNombreUpper = diplomadoNombre.toUpperCase();
+      if (dNombreUpper.includes('DCEMA')) {
+        notaMinima = 80;
+      } else if (dNombreUpper.includes('DCEA')) {
+        notaMinima = 75;
+      }
+
+      const esAprobado = totalNota >= notaMinima;
+
+      const keyDiplomado = `${gestion}-${diplomadoNombre}`;
+      const keyArea = `${gestion}-${areaNombre}`;
+
+      if (!statsDiplomados[keyDiplomado]) {
+        statsDiplomados[keyDiplomado] = { gestion, nombre: diplomadoNombre, aprobados: 0, reprobados: 0 };
+      }
+      if (!statsAreas[keyArea]) {
+        statsAreas[keyArea] = { gestion, nombre: areaNombre, aprobados: 0, reprobados: 0 };
+      }
+
+      if (esAprobado) {
+        statsDiplomados[keyDiplomado].aprobados++;
+        statsAreas[keyArea].aprobados++;
+      } else {
+        statsDiplomados[keyDiplomado].reprobados++;
+        statsAreas[keyArea].reprobados++;
+      }
+    }
+
+    const dataDiplomados = Object.values(statsDiplomados);
+    const dataAreas = Object.values(statsAreas);
+
+    res.json({ diplomados: dataDiplomados, areas: dataAreas });
+  } catch (error) {
+    console.error("Error al obtener estadísticas de aprobación:", error);
+    res.status(500).json({ error: 'Error interno al generar estadísticas de aprobación' });
+  }
+};

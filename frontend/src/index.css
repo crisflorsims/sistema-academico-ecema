@@ -1,0 +1,76 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
+  --color-primary: #0f2942;
+  --color-secondary: #b45309;
+}
+
+html {
+  font-size: 15.5px;
+  font-family: var(--font-sans);
+}
+
+body {
+  @apply bg-[#f4f6f9] text-slate-800 antialiased selection:bg-slate-800 selection:text-white;
+}
+
+/* Tabular numbers for grades, statistics and tables */
+table td,
+table th,
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Remove native browser spin arrows inside number inputs so decimals never get clipped */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
+}
+
+/* Subtle institutional scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  #printable-rubrica, #printable-rubrica *,
+  #printable-kardex, #printable-kardex * {
+    visibility: visible;
+  }
+  #printable-rubrica, #printable-kardex {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    background: white !important;
+  }
+  /* Ocultar elementos específicos dentro de la rúbrica o kardex al imprimir */
+  #printable-rubrica .no-print,
+  #printable-rubrica .no-print *,
+  #printable-kardex .no-print,
+  #printable-kardex .no-print * {
+    display: none !important;
+  }
+}

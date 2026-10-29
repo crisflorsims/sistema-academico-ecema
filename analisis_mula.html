@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Análisis de la Clase 7: Módulo Unificado de Logística Aérea (MULA)</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 40px;
+        }
+        h1, h2, h3 {
+            color: #2c3e50;
+        }
+        h1 {
+            border-bottom: 2px solid #2c3e50;
+            padding-bottom: 10px;
+            font-size: 24px;
+        }
+        h2 {
+            margin-top: 30px;
+            border-bottom: 1px solid #bdc3c7;
+            padding-bottom: 5px;
+            font-size: 20px;
+        }
+        h3 {
+            margin-top: 20px;
+            font-size: 18px;
+        }
+        ul, ol {
+            margin-bottom: 20px;
+        }
+        li {
+            margin-bottom: 10px;
+        }
+        strong {
+            color: #2980b9;
+        }
+        hr {
+            border: 0;
+            border-top: 1px solid #eee;
+            margin: 30px 0;
+        }
+        /* Configuración para cuando se imprime o guarda como PDF */
+        @media print {
+            body {
+                max-width: 100%;
+                padding: 0;
+            }
+            @page {
+                margin: 2cm;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Análisis de la Clase 7: Módulo Unificado de Logística Aérea (MULA)</h1>
+    <p>Este documento es una guía detallada y didáctica basada en el video de la "Clase 7", diseñada para que puedas dominar y enseñar el manejo del software <strong>MULA (Módulo Unificado de Logística Aérea)</strong>.</p>
+
+    <h2>1. ¿De qué se trata el sistema MULA?</h2>
+    <p>El MULA es un sistema informático diseñado para la gestión, planificación y control de operaciones logísticas aéreas. Permite coordinar eficientemente el transporte de carga y pasajeros, asignar aeronaves, definir bases operativas y generar órdenes de tareas aéreas (ATO) y órdenes de tareas logísticas (LTO). El sistema está pensado para ser utilizado en simulaciones de juegos de guerra o ejercicios operativos militares.</p>
+
+    <h2>2. Funcionamiento General</h2>
+    <p>El sistema funciona bajo una arquitectura cliente-servidor y consta de dos componentes principales que interactúan entre sí:</p>
+    <ul>
+        <li><strong>Plataforma Web (Administración y Logística):</strong> Se accede mediante un navegador web. Aquí se gestionan los requerimientos (Requests), se organizan las terminales de carga, se manejan los manifiestos de pasajeros/carga y se visualiza el estado general de la operación.</li>
+        <li><strong>Cliente de Escritorio (Planificación Aérea):</strong> Una aplicación instalable en Windows ("Cliente MULA") que incluye un mapa interactivo. En esta aplicación se planifican las misiones de vuelo (ATO), se definen las rutas (waypoints), altitudes y horarios de las aeronaves.</li>
+    </ul>
+    <p>Ambos sistemas se sincronizan. Lo que se planifica en el cliente de escritorio (los vuelos) se refleja en la plataforma web para que el área de logística asigne la carga a esos vuelos.</p>
+
+    <h2>3. Partes Principales del Sistema</h2>
+    
+    <h3>Plataforma Web</h3>
+    <ul>
+        <li><strong>Operation Admin (Administración de Operaciones):</strong>
+            <ul>
+                <li><strong>Bases:</strong> Permite dar de alta, modificar o eliminar bases operativas (aeropuertos, helipuertos) definiendo sus coordenadas.</li>
+            </ul>
+        </li>
+        <li><strong>Air Logistic Control (Control Logístico Aéreo):</strong>
+            <ul>
+                <li><strong>Requests (Requerimientos):</strong> Permite ingresar solicitudes de transporte (ej. alimentos, medicamentos, personal).</li>
+                <li><strong>PLTO (Prioritized Transport List):</strong> Lista de transporte priorizada según rangos de tiempo (ej. Día D, D+1).</li>
+                <li><strong>Air Freight Terminals (Terminales de Carga):</strong> Gestión de los paquetes que llegan a las terminales y creación de Manifiestos de Carga/Pasajeros para asignarlos a los vuelos.</li>
+            </ul>
+        </li>
+        <li><strong>Air Tasking:</strong>
+            <ul>
+                <li>Permite revisar las misiones actuales publicadas y su estado.</li>
+            </ul>
+        </li>
+    </ul>
+
+    <h3>Cliente de Escritorio</h3>
+    <ul>
+        <li><strong>Planning (Planificación):</strong>
+            <ul>
+                <li><strong>New ATO (Nueva Orden de Tareas Aéreas):</strong> Creación de un bloque de planificación de misiones.</li>
+                <li><strong>New Mission:</strong> Creación de misiones específicas (asignación de aeronave, base de salida, base de llegada, misión principal).</li>
+                <li><strong>Navigation / Waypoints:</strong> Definición precisa de la ruta de vuelo, altitudes y tiempos estimados.</li>
+            </ul>
+        </li>
+    </ul>
+
+    <h3>GeoServer (Servidor de Mapas)</h3>
+    <ul>
+        <li>Un servicio en segundo plano (requiere Java) que provee la cartografía y mapas base tanto para la web como para el cliente de escritorio.</li>
+    </ul>
+
+    <hr>
+
+    <h2>4. Secuencia de Pasos para Ejecutar un Ejercicio Operativo</h2>
+    <p>A continuación, se detalla el ciclo completo de una operación, dividiendo los roles para mayor claridad didáctica.</p>
+
+    <h3>A. Preparación y Configuración (Rol Administrador / Técnico)</h3>
+    <ol>
+        <li><strong>Instalación del Cliente y Cartografía:</strong>
+            <ul>
+                <li>Descargar el instalador del Cliente desde la plataforma web (sección Downloads).</li>
+                <li>Instalar el archivo <code>.exe</code>.</li>
+                <li>Copiar la carpeta <code>DATA</code> (que contiene la cartografía) a la raíz del disco duro (ej. <code>C:\Data</code>).</li>
+                <li>En el cliente MULA, ir a <code>System -&gt; Settings</code> y configurar el <em>Data Path</em> apuntando a <code>C:\Data</code>.</li>
+            </ul>
+        </li>
+        <li><strong>Verificación del Servidor de Mapas:</strong>
+            <ul>
+                <li>Asegurarse de que GeoServer esté corriendo (ejecutando <code>startup.bat</code>). Si no corre, los mapas se verán en blanco.</li>
+            </ul>
+        </li>
+        <li><strong>Configuración de la Operación en la Web:</strong>
+            <ul>
+                <li>El Administrador ingresa a la plataforma web.</li>
+                <li>Va a <code>Operation Admin -&gt; Bases</code> y verifica o da de alta las bases operativas involucradas en el ejercicio, estableciendo sus coordenadas geográficas exactas.</li>
+                <li>En <code>System Admin -&gt; Time Ranges</code>, define los rangos de tiempo del ejercicio (ej. Día D-1, Día D, Día D+1).</li>
+            </ul>
+        </li>
+    </ol>
+
+    <h3>B. Gestión Logística (Rol Operador Logístico - Plataforma Web)</h3>
+    <ol>
+        <li><strong>Ingreso de Requerimientos:</strong>
+            <ul>
+                <li>Ir a <code>Air Logistic Control -&gt; Requests</code>.</li>
+                <li>Crear nuevos requerimientos detallando qué se necesita transportar (carga o pasajeros), origen, destino y prioridad.</li>
+            </ul>
+        </li>
+        <li><strong>Creación de la PLTO:</strong>
+            <ul>
+                <li>Ir a <code>PLTO</code>.</li>
+                <li>Generar la lista priorizada de transporte asignando los requerimientos a un rango de tiempo específico.</li>
+            </ul>
+        </li>
+        <li><strong>Gestión en Terminales de Carga:</strong>
+            <ul>
+                <li>Ir a <code>Air Freight Terminals</code> y seleccionar la base específica (terminal).</li>
+                <li>Se verán los paquetes disponibles. Aquí se crean los <strong>Manifiestos</strong>.</li>
+                <li>Seleccionar los paquetes y asignarlos a un manifiesto, indicando que el material ya está listo en la terminal esperando vuelo.</li>
+            </ul>
+        </li>
+    </ol>
+
+    <h3>C. Planificación Aérea (Rol Operador de Planificación - Cliente de Escritorio)</h3>
+    <ol>
+        <li><strong>Creación de la ATO (Air Tasking Order):</strong>
+            <ul>
+                <li>Abrir el Cliente MULA y loguearse.</li>
+                <li>Ir a la pestaña <code>Planning</code>, hacer clic derecho y seleccionar <code>New ATO</code>.</li>
+                <li>Definir el nombre y el rango horario de validez de esta orden.</li>
+            </ul>
+        </li>
+        <li><strong>Planificación de Misiones:</strong>
+            <ul>
+                <li>Hacer clic derecho sobre la ATO recién creada y seleccionar <code>New Mission</code>.</li>
+                <li><strong>Pestaña Main Data:</strong> Elegir el tipo de aeronave (ej. C-130), base de partida (<em>Departure</em>), base de destino (<em>Final Arrival</em>) y el <em>Callsign</em> (indicativo del vuelo).</li>
+                <li><strong>Pestaña Navigation:</strong> Esta es la parte más crítica. Se deben añadir los puntos de ruta (<em>Waypoints</em>). Para cada punto se debe establecer la <strong>Altitud de vuelo</strong> (en nivel de vuelo / Flight Level) y los <strong>Horarios</strong>.</li>
+                <li><em>Nota didáctica:</em> Si un avión va y vuelve por la misma ruta, asegurarse de asignar altitudes diferentes para la ida y la vuelta para evitar colisiones en la simulación.</li>
+            </ul>
+        </li>
+        <li><strong>Validación y Publicación:</strong>
+            <ul>
+                <li>Guardar la misión.</li>
+                <li>Hacer clic derecho en la ATO y seleccionar <code>Validate ATO</code>. El sistema revisará que no haya errores (como cruces de horarios o aeronaves inexistentes).</li>
+                <li>Si la validación es correcta, hacer clic derecho y seleccionar <code>Publish ATO</code>. En este momento, los vuelos se envían al servidor y son visibles para el equipo de logística.</li>
+            </ul>
+        </li>
+    </ol>
+
+    <h3>D. Ejecución y Enlace Final (Rol Conjunto Web-Cliente)</h3>
+    <ol>
+        <li><strong>Asignación Final (Web):</strong>
+            <ul>
+                <li>Con la ATO publicada, el Operador Logístico vuelve a la web (<code>Air Logistic Control -&gt; Air Freight Terminals</code>).</li>
+                <li>Abre el Manifiesto previamente creado y ahora podrá <strong>asignar ese manifiesto a uno de los vuelos específicos</strong> que el Planificador acaba de publicar.</li>
+                <li>Cierra el manifiesto (el candado cambia a rojo), indicando que el avión ha sido cargado y está listo para despegar.</li>
+            </ul>
+        </li>
+        <li><strong>Seguimiento:</strong>
+            <ul>
+                <li>Cualquier rol puede ir a <code>Air Tasking -&gt; Review current operation</code> en la web para monitorear el progreso de los vuelos y el movimiento logístico en tiempo real.</li>
+            </ul>
+        </li>
+    </ol>
+
+    <hr>
+
+    <h2>5. Puntos Clave para la Docencia (Tips para el Instructor)</h2>
+    <ul>
+        <li><strong>Sincronización:</strong> Enfatiza siempre a tus alumnos que MULA es un sistema de "esfuerzo combinado". La web (Logística) y el Cliente (Planificación) dependen uno del otro. Los logísticos no pueden cargar los aviones si los planificadores no publican la ATO, y los aviones volarán vacíos si logística no cierra los manifiestos.</li>
+        <li><strong>Troubleshooting (Errores comunes):</strong>
+            <ul>
+                <li><em>El mapa se ve blanco:</em> Recordar a los alumnos encender el GeoServer o verificar la ruta <code>C:\Data</code>.</li>
+                <li><em>No se puede publicar la ATO:</em> Seguramente hay un error de validación en la pestaña "Navigation" (falta de altitud o incoherencia en los horarios).</li>
+            </ul>
+        </li>
+        <li><strong>Secuencia Lógica:</strong> Usa la analogía de una empresa de envíos. Primero el cliente pide el envío (Request), luego la caja llega al depósito (Terminal), se arma la hoja de ruta del camión (ATO/Missions en Cliente), se sube la caja al camión (Asignación de Manifiesto) y el camión sale (Review Operation).</li>
+    </ul>
+
+</body>
+</html>

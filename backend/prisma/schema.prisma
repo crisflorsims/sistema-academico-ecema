@@ -1,0 +1,265 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Rol {
+  ADMIN
+  DOCENTE
+  CURSANTE
+  EVALUADOR
+  INSTRUCCION
+}
+
+enum TipoDiplomado {
+  ANUAL
+  SEMESTRAL
+}
+
+enum EstadoInscripcion {
+  ACTIVO
+  EGRESADO
+  ABANDONO
+}
+
+model Usuario {
+  id            Int       @id @default(autoincrement())
+  nombre        String
+  apellido      String
+  email         String    @unique
+  password_hash String
+  grado         String?
+  ci            String?
+  cm            String?
+  promocion     String?
+  telefono      String?
+  direccion     String?
+  foto_url      String?
+  rol           Rol       @default(CURSANTE)
+  activo        Boolean   @default(true)
+  motivo_inactivacion String?
+  intentos_fallidos   Int       @default(0)
+  bloqueado_hasta     DateTime?
+  creado_en     DateTime  @default(now())
+  actualizado_en DateTime @updatedAt
+
+  materias_asignadas DocenteMateria[]
+  materias_evaluadas EvaluadorMateria[]
+  inscripciones      Inscripcion[]
+  calificaciones_dadas Calificacion[] @relation("DocenteCalificador")
+  eventos            Evento[]
+  demeritos_reportados Demerito[]
+  notas_auditadas    AuditoriaNota[]
+}
+
+model Periodo {
+  id           Int       @id @default(autoincrement())
+  gestion      String    // ej: "2026"
+  semestre     String?   // ej: "1", "2"
+  fecha_inicio DateTime?
+  fecha_fin    DateTime?
+
+  ediciones EdicionDiplomado[]
+  
+  @@unique([gestion, semestre])
+}
+
+model Diplomado {
+  id          Int           @id @default(autoincrement())
+  nombre      String
+  descripcion String?
+  tipo        TipoDiplomado @default(ANUAL)
+  duracion    String?
+
+  materias  Materia[]
+  ediciones EdicionDiplomado[]
+  areas     Area[]
+}
+
+model Area {
+  id           Int     @id @default(autoincrement())
+  nombre       String
+  diplomado_id Int
+
+  diplomado Diplomado @relation(fields: [diplomado_id], references: [id], onDelete: Cascade)
+  materias  Materia[]
+}
+
+model Materia {
+  id           Int     @id @default(autoincrement())
+  nombre       String
+  descripcion  String?
+  creditos     Int?
+  horas        Int?
+  orden        Int     @default(1)
+  diplomado_id Int
+  area_id      Int?
+
+  diplomado Diplomado @relation(fields: [diplomado_id], references: [id], onDelete: Cascade)
+  area      Area?     @relation(fields: [area_id], references: [id], onDelete: SetNull)
+  
+  docentes      DocenteMateria[]
+  evaluadores   EvaluadorMateria[]
+  inscripciones InscripcionMateria[]
+}
+
+model DocenteMateria {
+  id         Int @id @default(autoincrement())
+  docente_id Int
+  materia_id Int
+  edicion_id Int
+
+  docente Usuario @relation(fields: [docente_id], references: [id], onDelete: Cascade)
+  materia Materia @relation(fields: [materia_id], references: [id], onDelete: Cascade)
+  edicion EdicionDiplomado @relation(fields: [edicion_id], references: [id], onDelete: Cascade)
+
+  @@unique([docente_id, materia_id, edicion_id])
+}
+
+model EvaluadorMateria {
+  id           Int @id @default(autoincrement())
+  evaluador_id Int
+  materia_id   Int
+  edicion_id   Int
+
+  evaluador Usuario @relation(fields: [evaluador_id], references: [id], onDelete: Cascade)
+  materia   Materia @relation(fields: [materia_id], references: [id], onDelete: Cascade)
+  edicion   EdicionDiplomado @relation(fields: [edicion_id], references: [id], onDelete: Cascade)
+
+  @@unique([evaluador_id, materia_id, edicion_id])
+}
+
+model EdicionDiplomado {
+  id           Int       @id @default(autoincrement())
+  diplomado_id Int
+  periodo_id   Int
+  fecha_inicio DateTime?
+  fecha_fin    DateTime?
+  estado       String    @default("ABIERTO") // ABIERTO, EN_CURSO, CERRADO
+
+  diplomado Diplomado @relation(fields: [diplomado_id], references: [id], onDelete: Cascade)
+  periodo   Periodo   @relation(fields: [periodo_id], references: [id], onDelete: Cascade)
+  
+  inscripciones Inscripcion[]
+  docentes      DocenteMateria[]
+  evaluadores   EvaluadorMateria[]
+
+  @@unique([diplomado_id, periodo_id])
+}
+
+model Inscripcion {
+  id                 Int               @id @default(autoincrement())
+  cursante_id        Int
+  edicion_id         Int
+  fecha_inscripcion  DateTime          @default(now())
+  estado             EstadoInscripcion @default(ACTIVO)
+  ponderaciones      Json?
+
+  cursante Usuario          @relation(fields: [cursante_id], references: [id], onDelete: Cascade)
+  edicion  EdicionDiplomado @relation(fields: [edicion_id], references: [id], onDelete: Cascade)
+  
+  materias InscripcionMateria[]
+  demeritos Demerito[]
+
+  @@unique([cursante_id, edicion_id])
+}
+
+model InscripcionMateria {
+  id             Int @id @default(autoincrement())
+  inscripcion_id Int
+  materia_id     Int
+
+  inscripcion Inscripcion @relation(fields: [inscripcion_id], references: [id], onDelete: Cascade)
+  materia     Materia     @relation(fields: [materia_id], references: [id], onDelete: Cascade)
+  
+  calificaciones Calificacion[]
+
+  @@unique([inscripcion_id, materia_id])
+}
+
+model Calificacion {
+  id                     Int      @id @default(autoincrement())
+  inscripcion_materia_id Int
+  docente_id             Int
+  evaluacion             String   // ej: "Parcial 1", "Examen Final"
+  nota                   Float
+  rubrica                Json?    // Desglose de rúbrica para apreciación
+  observaciones          String?  // Justificación para notas <75 o >95
+  fecha                  DateTime @default(now())
+
+  inscripcion_materia InscripcionMateria @relation(fields: [inscripcion_materia_id], references: [id], onDelete: Cascade)
+  docente             Usuario            @relation("DocenteCalificador", fields: [docente_id], references: [id])
+  auditorias          AuditoriaNota[]
+
+  @@unique([inscripcion_materia_id, evaluacion])
+}
+
+model ConfiguracionInstituto {
+  clave String @id
+  valor String
+}
+
+model Evento {
+  id         Int      @id @default(autoincrement())
+  usuario_id Int?     // El usuario que realizó la acción (puede ser nulo si es sistema/anonimo)
+  accion     String   // CREAR, EDITAR, ELIMINAR, EXPORTAR, LOGIN, etc.
+  entidad    String   // USUARIO, DIPLOMADO, NOTA, REPORTE, etc.
+  detalles   String?  // Detalles legibles de la acción
+  fecha      DateTime @default(now())
+
+  usuario    Usuario? @relation(fields: [usuario_id], references: [id], onDelete: SetNull)
+}
+
+enum TipoFalta {
+  LEVE_3
+  LEVE_5
+  GRAVE_10
+  GRAVE_15
+  GRAVE_20
+  GRAVE_25
+  ACADEMICA
+}
+
+model Demerito {
+  id                         Int       @id @default(autoincrement())
+  inscripcion_id             Int
+  reportador_id              Int?      // Usuario que reporta la falta
+  tipo                       TipoFalta
+  motivo                     String    // Descripción exacta de la falta
+  codigo_falta               String?   // Código específico de la falta (ej: "8", "2", "14")
+  es_reincidencia            Boolean   @default(false) // Si se confirmó reincidencia por el mismo motivo
+  puntos_base                Float     // Puntos originales (3, 5, 10...)
+  nivel_reincidencia         Int       @default(1) // 1: 1ra vez, 2: doble, 3: triple
+  puntos_totales_descontados Float     // puntos_base * nivel_reincidencia
+  sancionador                String?   // Autoridad o persona que impuso la falta
+  numero_boleta              String?   // N° de boleta física de sanción
+  fecha_falta                DateTime? // Fecha y hora manual de la falta u orden verbal
+  fecha                      DateTime  @default(now()) // Fecha de registro automático en el sistema
+
+  inscripcion Inscripcion @relation(fields: [inscripcion_id], references: [id], onDelete: Cascade)
+  reportador  Usuario?    @relation(fields: [reportador_id], references: [id], onDelete: SetNull)
+}
+
+model AuditoriaNota {
+  id             Int       @id @default(autoincrement())
+  calificacion_id Int
+  usuario_id     Int?
+  nota_anterior  Float
+  nota_nueva     Float
+  fecha          DateTime  @default(now())
+
+  calificacion Calificacion @relation(fields: [calificacion_id], references: [id], onDelete: Cascade)
+  usuario      Usuario?     @relation(fields: [usuario_id], references: [id], onDelete: SetNull)
+}
+
+model Sancionador {
+  id       Int       @id @default(autoincrement())
+  grado    String?
+  nombre   String
+  apellido String
+  activo   Boolean   @default(true)
+}
+

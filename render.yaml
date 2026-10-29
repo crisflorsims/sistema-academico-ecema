@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: sistema-academico-ecema
+    runtime: node
+    plan: free
+    buildCommand: npm --prefix frontend install && npm --prefix frontend run build && npm --prefix backend install && npx --prefix backend prisma generate
+    startCommand: npx --prefix backend tsx src/index.ts
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: JWT_SECRET
+        generateValue: true
+      - key: DATABASE_URL
+        sync: false
+
