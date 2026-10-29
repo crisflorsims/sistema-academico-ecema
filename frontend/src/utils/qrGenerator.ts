@@ -1,5 +1,5 @@
 /**
- * Generador de Código QR (ISO/IEC 18004 Nivel L, Versiones 1 a 9) 100% Offline en SVG/DataURI
+ * Generador de Código QR (ISO/IEC 18004 Nivel L, Versiones 1 a 10) 100% Offline en SVG/DataURI
  * y Bloques Oficiales de Membrete, Marca de Agua y 3 Firmas Reglamentarias ECEMA.
  */
 
@@ -24,78 +24,58 @@ const QR_VERSIONS_L: QRVersionSpec[] = [
   { version: 9, size: 53, numBlocks: 2, dataCodewordsPerBlock: 116, ecCodewordsPerBlock: 30, alignment: [6, 26, 46] }
 ];
 
-// Tablas GF(256) con polinomio primitivo 0x11D
-const GF_EXP = new Uint8Array(512);
-const GF_LOG = new Uint8Array(256);
-(() => {
-  let x = 1;
-  for (let i = 0; i < 255; i++) {
-    GF_EXP[i] = x;
-    GF_LOG[x] = i;
-    x <<= 1;
-    if (x & 0x100) x ^= 0x11d;
+function gfMul(x: number, y: number): number {
+  let z = 0;
+  for (let i = 7; i >= 0; i--) {
+    z = (z << 1) ^ ((z >>> 7) * 0x11d);
+    z ^= ((y >>> i) & 1) * x;
   }
-  for (let i = 255; i < 512; i++) {
-    GF_EXP[i] = GF_EXP[i - 255]!;
-  }
-})();
-
-function gfMul(a: number, b: number): number {
-  if (a === 0 || b === 0) return 0;
-  return GF_EXP[GF_LOG[a]! + GF_LOG[b]!]!;
+  return z;
 }
 
-function rsGeneratorPoly(degree: number): Uint8Array {
-  let poly = new Uint8Array([1]);
+function reedSolomonComputeDivisor(degree: number): Uint8Array {
+  const result = new Uint8Array(degree);
+  result[degree - 1] = 1;
+  let root = 1;
   for (let i = 0; i < degree; i++) {
-    const next = new Uint8Array(poly.length + 1);
-    const root = GF_EXP[i]!;
-    for (let j = 0; j < poly.length; j++) {
-      next[j] ^= poly[j]!;
-      next[j + 1] ^= gfMul(poly[j]!, root);
+    for (let j = 0; j < degree; j++) {
+      result[j] = gfMul(result[j]!, root);
+      if (j + 1 < degree) result[j] ^= result[j + 1]!;
     }
-    poly = next;
+    root = gfMul(root, 0x02);
   }
-  return poly;
+  return result;
 }
 
-function rsEncode(data: Uint8Array, ecLen: number): Uint8Array {
-  const gen = rsGeneratorPoly(ecLen);
-  const msg = new Uint8Array(data.length + ecLen);
-  msg.set(data, 0);
-  for (let i = 0; i < data.length; i++) {
-    const coef = msg[i]!;
-    if (coef !== 0) {
-      for (let j = 0; j < gen.length; j++) {
-        msg[i + j] ^= gfMul(gen[j]!, coef);
-      }
+function reedSolomonComputeRemainder(data: Uint8Array, divisor: Uint8Array): Uint8Array {
+  const result = new Uint8Array(divisor.length);
+  for (const b of data) {
+    const factor = b ^ result[0]!;
+    result.copyWithin(0, 1);
+    result[divisor.length - 1] = 0;
+    for (let i = 0; i < divisor.length; i++) {
+      result[i] ^= gfMul(divisor[i]!, factor);
     }
   }
-  return msg.slice(data.length);
+  return result;
 }
 
 function getBCHFormatInfo(maskPattern: number): number {
   // Error Correction Level L = 01
   const data = (0b01 << 3) | maskPattern;
-  let d = data << 10;
-  const poly = 0b10100110111;
-  for (let i = 14; i >= 10; i--) {
-    if ((d >> i) & 1) {
-      d ^= poly << (i - 10);
-    }
+  let rem = data;
+  for (let i = 0; i < 10; i++) {
+    rem = (rem << 1) ^ ((rem >>> 9) * 0x537);
   }
-  return ((data << 10) | d) ^ 0b101010000010010;
+  return ((data << 10) | rem) ^ 0x5412;
 }
 
 function getBCHVersionInfo(version: number): number {
-  let d = version << 12;
-  const poly = 0b1111100100101;
-  for (let i = 17; i >= 12; i--) {
-    if ((d >> i) & 1) {
-      d ^= poly << (i - 12);
-    }
+  let rem = version;
+  for (let i = 0; i < 12; i++) {
+    rem = (rem << 1) ^ ((rem >>> 11) * 0x1f25);
   }
-  return (version << 12) | d;
+  return (version << 12) | rem;
 }
 
 export function generarQRDataURI(text: string): string {
@@ -108,7 +88,7 @@ export function generarQRDataURI(text: string): string {
   const bitBuffer: number[] = [];
   const pushBits = (val: number, len: number) => {
     for (let i = len - 1; i >= 0; i--) {
-      bitBuffer.push((val >> i) & 1);
+      bitBuffer.push((val >>> i) & 1);
     }
   };
 
@@ -139,13 +119,14 @@ export function generarQRDataURI(text: string): string {
   }
 
   // Dividir en bloques y calcular Reed-Solomon
+  const divisor = reedSolomonComputeDivisor(spec.ecCodewordsPerBlock);
   const dataBlocks: Uint8Array[] = [];
   const ecBlocks: Uint8Array[] = [];
   for (let b = 0; b < spec.numBlocks; b++) {
     const start = b * spec.dataCodewordsPerBlock;
     const block = dataBytes.slice(start, start + spec.dataCodewordsPerBlock);
     dataBlocks.push(block);
-    ecBlocks.push(rsEncode(block, spec.ecCodewordsPerBlock));
+    ecBlocks.push(reedSolomonComputeRemainder(block, divisor));
   }
 
   // Intercalar bloques
@@ -162,9 +143,10 @@ export function generarQRDataURI(text: string): string {
   }
 
   const size = spec.size;
-  const modules: (boolean | null)[][] = Array.from({ length: size }, () => Array(size).fill(null));
+  const modules: boolean[][] = Array.from({ length: size }, () => Array(size).fill(false));
   const isFunction: boolean[][] = Array.from({ length: size }, () => Array(size).fill(false));
 
+  // En estándar ISO: r = fila (y), c = columna (x)
   const setFunctionModule = (r: number, c: number, dark: boolean) => {
     if (r >= 0 && r < size && c >= 0 && c < size) {
       modules[r]![c] = dark;
@@ -228,7 +210,7 @@ export function generarQRDataURI(text: string): string {
   if (spec.version >= 7) {
     const vInfo = getBCHVersionInfo(spec.version);
     for (let i = 0; i < 18; i++) {
-      const bit = ((vInfo >> i) & 1) === 1;
+      const bit = ((vInfo >>> i) & 1) === 1;
       const a = size - 11 + (i % 3);
       const b = Math.floor(i / 3);
       setFunctionModule(a, b, bit);
@@ -239,7 +221,7 @@ export function generarQRDataURI(text: string): string {
   // Colocar bits de datos en zigzag
   const allBits: number[] = [];
   for (const cw of finalCodewords) {
-    for (let b = 7; b >= 0; b--) allBits.push((cw >> b) & 1);
+    for (let b = 7; b >= 0; b--) allBits.push((cw >>> b) & 1);
   }
 
   let bitIdx = 0;
@@ -269,19 +251,19 @@ export function generarQRDataURI(text: string): string {
     }
   }
 
-  // Escribir bits de formato para máscara 0
+  // Escribir bits de formato (ISO/IEC 18004: bit 0 en (0,8) y (8, size-1))
   const fmt = getBCHFormatInfo(mask);
-  for (let i = 0; i <= 5; i++) setFunctionModule(8, i, ((fmt >> i) & 1) === 1);
-  setFunctionModule(8, 7, ((fmt >> 6) & 1) === 1);
-  setFunctionModule(8, 8, ((fmt >> 7) & 1) === 1);
-  setFunctionModule(7, 8, ((fmt >> 8) & 1) === 1);
-  for (let i = 9; i < 15; i++) setFunctionModule(14 - i, 8, ((fmt >> i) & 1) === 1);
+  for (let i = 0; i <= 5; i++) setFunctionModule(i, 8, ((fmt >>> i) & 1) === 1);
+  setFunctionModule(7, 8, ((fmt >>> 6) & 1) === 1);
+  setFunctionModule(8, 8, ((fmt >>> 7) & 1) === 1);
+  setFunctionModule(8, 7, ((fmt >>> 8) & 1) === 1);
+  for (let i = 9; i < 15; i++) setFunctionModule(8, 14 - i, ((fmt >>> i) & 1) === 1);
 
-  for (let i = 0; i < 8; i++) setFunctionModule(size - 1 - i, 8, ((fmt >> i) & 1) === 1);
-  for (let i = 8; i < 15; i++) setFunctionModule(8, size - 15 + i, ((fmt >> i) & 1) === 1);
+  for (let i = 0; i < 8; i++) setFunctionModule(8, size - 1 - i, ((fmt >>> i) & 1) === 1);
+  for (let i = 8; i < 15; i++) setFunctionModule(size - 15 + i, 8, ((fmt >>> i) & 1) === 1);
 
-  // Construir SVG con margen silencioso de 3 módulos
-  const quiet = 3;
+  // Construir SVG con margen silencioso de 4 módulos
+  const quiet = 4;
   const total = size + quiet * 2;
   let path = '';
   for (let r = 0; r < size; r++) {
@@ -292,7 +274,7 @@ export function generarQRDataURI(text: string): string {
     }
   }
 
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${total} ${total}" width="110" height="110" shape-rendering="crispEdges"><rect width="100%" height="100%" fill="#ffffff"/><path d="${path}" fill="#0f2942"/></svg>`;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${total} ${total}" width="110" height="110" shape-rendering="crispEdges"><rect width="100%" height="100%" fill="#ffffff"/><path d="${path}" fill="#000000"/></svg>`;
   const base64 = btoa(unescape(encodeURIComponent(svg)));
   return `data:image/svg+xml;base64,${base64}`;
 }
@@ -343,10 +325,7 @@ export function buildMembreteOficialHTML(params: {
 }): string {
   const { diplomadoCorto, tituloDocumento, subtituloDocumento, folioCodigo, isExcel } = params;
   const origin = typeof window !== 'undefined' ? window.location.origin : '';
-  const diplomadoLargo =
-    diplomadoCorto === 'DCEMA'
-      ? 'DIPLOMADO DE COMANDO Y ESTADO MAYOR AÉREO'
-      : 'DIPLOMADO DE COMANDO DE ESCUADRÓN AÉREO';
+  const nombreInstituto = 'ESCUELA DE COMANDO Y ESTADO MAYOR AÉREO';
 
   return `
   <table style="margin-bottom:6px;border-collapse:collapse;width:100%;position:relative;z-index:1;">
@@ -356,7 +335,7 @@ export function buildMembreteOficialHTML(params: {
           ${isExcel ? '' : `<img src="${origin}/logo-ecema.png" style="width:36px;height:36px;object-fit:contain;mix-blend-mode:multiply;" alt="ECEMA" />`}
           <div style="text-align:center;">
             FUERZA AÉREA BOLIVIANA — ECEMA<br/>
-            <span style="font-size:7pt;">${diplomadoLargo}</span><br/>
+            <span style="font-size:7pt;">${nombreInstituto}</span><br/>
             <u>BOLIVIA</u>
           </div>
         </div>
@@ -379,7 +358,7 @@ export function buildMembreteOficialHTML(params: {
  * - Izquierda: COMANDANTE DE LA ECEMA
  * - Medio: COMANDANTE DEL GRUPO DCEA / DCEMA
  * - Derecha: COMANDANTE DEL EDRÓN. EVALUACIÓN DCEA / DCEMA
- * + Recuadro lateral con el Código QR de Verificación Criptográfica
+ * + Recuadro lateral con el Código QR que dirige al Portal Oficial de Verificación ECEMA (/verificar)
  */
 export function buildPieFirmasYQRHTML(params: {
   diplomadoCorto: 'DCEA' | 'DCEMA';
@@ -401,34 +380,34 @@ export function buildPieFirmasYQRHTML(params: {
     totalCursantes,
     promedioGeneral,
     extraInfo,
-    textoQR,
     fechaEmision,
     isExcel
   } = params;
 
-  const fechaHora = fechaEmision || new Date().toLocaleString('es-BO', {
+  const fechaCorta = (fechaEmision || new Date().toLocaleDateString('es-BO', {
     day: '2-digit',
     month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit'
+    year: 'numeric'
+  })).split(',')[0]!;
+
+  const origin = typeof window !== 'undefined' ? window.location.origin : '';
+  const docName = tipoDocumento || (folioCodigo.includes('ACTA') ? 'PLANILLA CENTRALIZADORA' : folioCodigo.includes('HIST') ? 'HISTORIAL ACADEMICO' : 'DOCUMENTO OFICIAL');
+
+  // Construimos una URL real hacia el Portal de Verificación del Sistema (/verificar)
+  // para que al escanear con la cámara del celular se abra una página oficial de autenticidad
+  const queryParams = new URLSearchParams({
+    f: folioCodigo,
+    h: hashIntegridad,
+    p: diplomadoCorto,
+    d: docName,
+    dt: fechaCorta,
   });
+  if (totalCursantes !== undefined) queryParams.set('r', String(totalCursantes));
+  if (promedioGeneral) queryParams.set('m', String(promedioGeneral));
+  if (extraInfo) queryParams.set('e', extraInfo.slice(0, 40));
 
-  const payloadQR = textoQR || [
-    `FAB-ECEMA`,
-    tipoDocumento ? `DOC:${tipoDocumento}` : '',
-    `PROG:${diplomadoCorto}`,
-    extraInfo ? `DET:${extraInfo}` : '',
-    totalCursantes !== undefined ? `REG:${totalCursantes}` : '',
-    promedioGeneral !== undefined ? `PROM:${promedioGeneral}` : '',
-    `FOLIO:${folioCodigo}`,
-    `HASH:${hashIntegridad}`,
-    `FECHA:${fechaHora}`
-  ]
-    .filter(Boolean)
-    .join('|');
-
-  const qrDataUri = generarQRDataURI(payloadQR);
+  const verificationUrl = `${origin}/verificar?${queryParams.toString()}`;
+  const qrDataUri = generarQRDataURI(verificationUrl);
 
   return `
   <table style="width:100%;margin-top:16px;border-collapse:collapse;page-break-inside:avoid;position:relative;z-index:1;">
@@ -458,15 +437,14 @@ export function buildPieFirmasYQRHTML(params: {
       </td>
       <td style="height:68px;padding:4px 6px;border:1pt solid #000;vertical-align:middle;text-align:center;">
         <div style="display:flex;align-items:center;justify-content:center;gap:6px;">
-          ${isExcel ? '' : `<img src="${qrDataUri}" style="width:58px;height:58px;display:block;border:1px solid #cbd5e1;padding:1px;background:#fff;" alt="QR Autenticidad" />`}
+          ${isExcel ? '' : `<img src="${qrDataUri}" style="width:62px;height:62px;display:block;border:1px solid #cbd5e1;padding:1px;background:#fff;" alt="QR Autenticidad" />`}
           <div style="text-align:left;font-size:6pt;line-height:1.35;font-family:monospace;color:#0f2942;">
             <b>FOLIO:</b><br/>${folioCodigo}<br/>
             <b>HASH:</b><br/>${hashIntegridad}<br/>
-            <span>${fechaHora.split(',')[0]}</span>
+            <span>${fechaCorta}</span>
           </div>
         </div>
       </td>
     </tr>
   </table>`;
 }
-

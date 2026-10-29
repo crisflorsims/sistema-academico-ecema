@@ -18,6 +18,7 @@ import { Eventos } from './pages/admin/Eventos';
 import { DisciplinaDashboard } from './pages/admin/DisciplinaDashboard';
 import { MiDisciplina } from './pages/estudiante/MiDisciplina';
 import { MiPonderacionFinal } from './pages/estudiante/MiPonderacionFinal';
+import { VerificarDocumento } from './pages/public/VerificarDocumento';
 import { 
   LayoutDashboard, Users, GraduationCap, CalendarDays, UserPlus, 
   BookOpen, ClipboardCheck, BarChart2, Calendar, ShieldAlert, UserCircle, LogOut, Menu, ChevronDown,
@@ -591,6 +592,7 @@ function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/login" element={<Login />} />
+        <Route path="/verificar" element={<VerificarDocumento />} />
         <Route path="/dashboard" element={<DashboardLayout />}>
           <Route index element={<Dashboard />} />
           <Route path="usuarios" element={<Usuarios />} />
